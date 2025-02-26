@@ -1,0 +1,44 @@
+---
+title: "ESM 244 - HW3 - Task 2"
+author: "Lauren Puffer"
+format: html
+editor: visual
+embed-resources: true
+code-fold: show
+execute: 
+  warning: false
+  message: false
+toc: TRUE
+theme: journal
+---
+
+## Overview
+
+!!!! USE LAB 6 KEY!!!
+
+## Load packages
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+library(ggcorrplot)
+library(knitr)
+library(kableExtra)
+library(vip)
+library(ranger)
+
+#file management packages
+library(janitor)
+library(here)
+```
+
+## Citation
+
+
+##Pseudocode
+
+##Load forest fire data
+```{r}
+fire_data <- read.csv()
+```
+
