@@ -38,79 +38,125 @@ Santa Barbara Coastal LTER and J. Melack. 2019. SBC LTER: Land: Stream chemistry
 
 ## Pseudocode
 
-1.  Sort?
-2.  Drop NAs
-3.  Include only numeric data
-4.  Scaling
-5.  Distance of scaled data
-6.  Use hclust
-7.  Use complete linkages
-8.  Create dendrogram
+1.  Drop NAs (list or column deletion?)
+2.  Include only numeric data
+3.  Scaling
+4.  Distance of scaled data
+5.  Use hclust
+6.  Use complete linkages
+7.  Create dendrogram
 
 ## Load stream chemistry data
 
 ```{r}
 
 #load data from local file in R project
-stream_data <- read.csv(here("data", "sbc_lter_registered_stream_chemistry.csv"))|>
-  clean_names()
+stream_data <- read.csv(here("data", "sbc_lter_registered_stream_chemistry.csv"))
 
 #data wrangling: group by site and collect mean for clustering
 
 #when we examine data in our console with the 'summary()' function, we see that there are -999 values for the minimum of many of our variables. This is how NAs are defined. We need to change the -999 values to NAs using the 'mutate()' function. 
 
 stream_data <- read.csv(here("data","sbc_lter_registered_stream_chemistry.csv"),
-                     na = '-999')
-#Now when we use 'summary()' we should not have -999 as our minimum. 
+                     na = '-999') |>
+  clean_names()|>
+  select(-timestamp_local)
 
-#Because there are many NAs in our dataframe but we don't want to exclude too much data, we will do an 'available case' deletion of NAs. 
+#make sure columns with numeric data are being interpreted as numeric
+
+#name columns to be used as numeric
+cols_to_convert <- c("nh4_u_m", "no3_u_m", "po4_u_m", "tdn_u_m", 
+                     "tdp_u_m", "tpc_u_m", "tpn_u_m", "tss_mgper_liter", 
+                     "spec_cond_u_spercm")
+
+#take these columns and convert them to numeric data 
+stream_data[cols_to_convert] <- lapply(stream_data[cols_to_convert], as.numeric)
+
+#rtest one column to see if it's numeric
+is.numeric(stream_data$nh4_u_m)
+#it worked!
+
+
+#Now when we use 'summary()' we should not have -999 as our minimum. 
+summary(stream_data)
+```
+
+
+
+##Deleting NAs
+```{r}
+#Because there are many NAs in our dataframe but we don't want to exclude too much data, we will do deletion of columns with >50 NAs. na_count <- colSums(is.na(df))
+
+na_count <- colSums(is.na(stream_data))
+
+#columns with more than 50% NAs
+cols_to_remove <- names(na_count[na_count > 9000])
+
+#remove columns with >50% NAs from the data frame
+stream_col_clean <- stream_data[, !(names(stream_data) %in% cols_to_remove)]
+
+#Summarize the cleaned data frame
+summary(stream_col_clean)
+
+#NOW we can try an alternative method to see how much of the data is retained. If it would affect our analysis to do a 'list deletion', we will use the previous method for removing NAs
+
+stream_clean <- stream_data |>
+  drop_na()
+
+#look at summary of the new data frame absent of NAs
+summary(stream_clean)
 
 ```
+While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
+
+##Create a summary dataframe with the mean values of each site. 
+#The data frame we are going to make contains the mean values of each variable for each site. 
+```{r}
+stream_summary <-  stream_clean|>
+  group_by(site_code) |>
+  summarize(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
+```
+
+
 
 ## Scaling data
 
 In order to scale our data we must extract only the numeric values by removing non-numeric data. After we are done scaling, we will replace our site names.
 
 ```{r}
-#TAKEN FROM LAB TEMPLATE
 
 # Scale the numeric variables (columns 3:7)
-wb_scaled <- wb_ghg_20 |>
+stream_scaled <- stream_summary |>
   select(where(is.numeric))|>
   scale()
 
-#TAKEN FROM LAB TEMPLATE
 #put row names for site back into the dataframe
-rownames(wb_scaled) <- wb_ghg_20$name
+rownames(stream_scaled) <- stream_summary$site_code
 ```
 
 ## Calculating Euclidian distance
 
 ```{r}
 
-#TAKEN FROM LAB TEMPLATE
-euc_distance <- dist(wb_scaled, method= 'euclidian')
+#used vector of scaled data to calculate euclidian distance
+euc_dist <- dist(stream_scaled, method= 'euclidian')
 ```
 
 ## Complete linkage hierarchical clustering
 
 ```{r}
-#TAKEN FROM LAB TEMPLATE
-# Hierarchical clustering (complete linkage)
-hc_complete <- hclust(euc_distance, method = "complete" )
+#Hierarchical clustering (complete linkage)
+comp_hclust_stream <- hclust(euc_dist, method = "complete" )
 ```
 
 ## Create dendrogram
 
 ```{r}
-
-#TAKEN FROM LAB TEMPLATE
-
-# Plot it
-p_complete<-ggdendrogram(hc_complete, 
+#Plot dendrogram
+hclust_dend_stream<-ggdendrogram(comp_hclust_stream, 
              rotate = TRUE) + #rotates 90
   theme_minimal() +
-  labs(title= "Complete", x = "Country")
+  labs(title= "Complete", x = "Site")
 
-p_complete
+hclust_dend_stream
 ```
