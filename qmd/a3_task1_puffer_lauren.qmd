@@ -1,0 +1,116 @@
+---
+title: "ESM 244 - HW 3 - Task 1"
+author: "Lauren Puffer"
+format: html
+editor: visual
+embed-resources: true
+code-fold: show
+execute: 
+  warning: false
+  message: false
+toc: TRUE
+theme: journal
+---
+
+## Overview
+
+What we gon' do???
+
+## Load packages
+
+```{r}
+#packages for data organiztaion
+library(tidyverse)
+library(janitor)
+library(here)
+
+#packages for clustering
+library(NbClust)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(ggdendro)
+```
+
+## Citation
+
+Santa Barbara Coastal LTER and J. Melack. 2019. SBC LTER: Land: Stream chemistry in the Santa Barbara Coastal drainage area, ongoing since 2000 ver 16. Environmental Data Initiative. <https://doi.org/10.6073/pasta/67a558a24ceed9a0a5bf5e46ab841174>.
+
+## Pseudocode
+
+1.  Sort?
+2.  Drop NAs
+3.  Include only numeric data
+4.  Scaling
+5.  Distance of scaled data
+6.  Use hclust
+7.  Use complete linkages
+8.  Create dendrogram
+
+## Load stream chemistry data
+
+```{r}
+
+#load data from local file in R project
+stream_data <- read.csv(here("data", "sbc_lter_registered_stream_chemistry.csv"))|>
+  clean_names()
+
+#data wrangling: group by site and collect mean for clustering
+
+#when we examine data in our console with the 'summary()' function, we see that there are -999 values for the minimum of many of our variables. This is how NAs are defined. We need to change the -999 values to NAs using the 'mutate()' function. 
+
+stream_data <- read.csv(here("data","sbc_lter_registered_stream_chemistry.csv"),
+                     na = '-999')
+#Now when we use 'summary()' we should not have -999 as our minimum. 
+
+#Because there are many NAs in our dataframe but we don't want to exclude too much data, we will do an 'available case' deletion of NAs. 
+
+```
+
+## Scaling data
+
+In order to scale our data we must extract only the numeric values by removing non-numeric data. After we are done scaling, we will replace our site names.
+
+```{r}
+#TAKEN FROM LAB TEMPLATE
+
+# Scale the numeric variables (columns 3:7)
+wb_scaled <- wb_ghg_20 |>
+  select(where(is.numeric))|>
+  scale()
+
+#TAKEN FROM LAB TEMPLATE
+#put row names for site back into the dataframe
+rownames(wb_scaled) <- wb_ghg_20$name
+```
+
+## Calculating Euclidian distance
+
+```{r}
+
+#TAKEN FROM LAB TEMPLATE
+euc_distance <- dist(wb_scaled, method= 'euclidian')
+```
+
+## Complete linkage hierarchical clustering
+
+```{r}
+#TAKEN FROM LAB TEMPLATE
+# Hierarchical clustering (complete linkage)
+hc_complete <- hclust(euc_distance, method = "complete" )
+```
+
+## Create dendrogram
+
+```{r}
+
+#TAKEN FROM LAB TEMPLATE
+
+# Plot it
+p_complete<-ggdendrogram(hc_complete, 
+             rotate = TRUE) + #rotates 90
+  theme_minimal() +
+  labs(title= "Complete", x = "Country")
+
+p_complete
+```
