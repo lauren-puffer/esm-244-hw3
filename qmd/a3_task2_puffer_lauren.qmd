@@ -145,19 +145,48 @@ fire_res |>
 
 ##Select the best fit
 ```{r}
-
+#determine best number of min_n and mtry
 fire_best<-select_best(fire_res,metric='mae')
+```
+
+Best number of Mtry is 1 and best number of min_n in 3. 
+
+
+###Finalize the model
+```{r}
 
 fire_final<-finalize_model(fire_spec, fire_best)
 
-# finalize workflow
-
+# finalize workflow on testing dataset
 final_fire_wf <- workflow() |>
   add_recipe(fire_recipe) |>
   add_model(fire_final)
 
 final_fire_res <- final_fire_wf |>
   last_fit(fire_split)
+```
+
+
+###Get predictions
+```{r}
+final_fire_res |>
+  collect_predictions() |> 
+  conf_mat(area,.pred) |> 
+  autoplot(type='heatmap')
+```
+
+
+### Unlog the data
+```{r}
 
 ```
+
+
+
+
+
+
+
+
+
 
