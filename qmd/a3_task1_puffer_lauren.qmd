@@ -97,6 +97,9 @@ stream_col_clean <- stream_data[, !(names(stream_data) %in% cols_to_remove)]
 #Summarize the cleaned data frame
 summary(stream_col_clean)
 
+#drop NAs 
+stream_clean <- stream_col_clean |>
+  drop_na()
 ```
 
 While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
@@ -104,7 +107,7 @@ While we have only 5% of the original data, our minimum values are 0 for the lis
 ##Create a summary dataframe with the mean values of each site. #The data frame we are going to make contains the mean values of each variable for each site.
 
 ```{r}
-stream_summary <-  stream_col_clean|>
+stream_summary <-  stream_clean|>
   group_by(site_code) |>
   summarize(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
 ```
