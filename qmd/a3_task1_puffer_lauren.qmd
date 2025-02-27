@@ -81,9 +81,8 @@ is.numeric(stream_data$nh4_u_m)
 summary(stream_data)
 ```
 
-
-
 ##Deleting NAs
+
 ```{r}
 #Because there are many NAs in our dataframe but we don't want to exclude too much data, we will do deletion of columns with >50 NAs. na_count <- colSums(is.na(df))
 
@@ -98,26 +97,17 @@ stream_col_clean <- stream_data[, !(names(stream_data) %in% cols_to_remove)]
 #Summarize the cleaned data frame
 summary(stream_col_clean)
 
-#NOW we can try an alternative method to see how much of the data is retained. If it would affect our analysis to do a 'list deletion', we will use the previous method for removing NAs
-
-stream_clean <- stream_data |>
-  drop_na()
-
-#look at summary of the new data frame absent of NAs
-summary(stream_clean)
-
 ```
+
 While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
 
-##Create a summary dataframe with the mean values of each site. 
-#The data frame we are going to make contains the mean values of each variable for each site. 
+##Create a summary dataframe with the mean values of each site. #The data frame we are going to make contains the mean values of each variable for each site.
+
 ```{r}
-stream_summary <-  stream_clean|>
+stream_summary <-  stream_col_clean|>
   group_by(site_code) |>
   summarize(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
 ```
-
-
 
 ## Scaling data
 
