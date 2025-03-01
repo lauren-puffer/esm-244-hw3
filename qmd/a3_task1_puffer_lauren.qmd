@@ -38,15 +38,18 @@ Santa Barbara Coastal LTER and J. Melack. 2019. SBC LTER: Land: Stream chemistry
 
 ## Pseudocode
 
-1.  Drop NAs (list or column deletion?)
-2.  Include only numeric data
-3.  Scaling
-4.  Distance of scaled data
-5.  Use hclust
-6.  Use complete linkages
-7.  Create dendrogram
+1.  Load data and change -999 to NA. Ensure that variables are numeric.
+2.  Drop NAs using column deletion, then list deletion
+3.  Include only numeric data.
+4.  Scale data.
+5.  Distance of scaled data.
+6.  Use hclust to sort into clusters.
+7.  Get correlation between clusters using complete linkages
+8.  Create dendrogram to observe similarity of sites.
 
 ## Load stream chemistry data
+
+The people who made this data set used -999 to convey a value where data is missing. We will change those values to NAs in our data wrangling. We will then take a look at our data to see how many NAs we have. Our agglomerative hierarchical cluster will also only work with numeric data. To ensure that all of the variables we use are being passed as numeric values we will convert them to numeric data.
 
 ```{r}
 
@@ -81,7 +84,9 @@ is.numeric(stream_data$nh4_u_m)
 summary(stream_data)
 ```
 
-##Deleting NAs
+## Deleting NAs
+
+Because we have so many NAs in our dataset, we will need to get rid of as many NAs as possible, without deleting most of our usable data. To do this, we will first create a cut off for the amount of NAs a column should have. In this case, 9000 is selected because that is roughly 50% of our observations. Any column with greater than 9000 NAs will be dropped from the data set. Then we will perform a list deletion using drop_na() to get rid of the remainder of our NAs. The reason we are doing it in this order, is because if we only conducted a list deletion, we would have much fewer observations. We want to use as many observations as possible in our analysis for the sake of accuracy.
 
 ```{r}
 #Because there are many NAs in our dataframe but we don't want to exclude too much data, we will do deletion of columns with >50 NAs. na_count <- colSums(is.na(df))
@@ -104,7 +109,9 @@ stream_clean <- stream_col_clean |>
 
 While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
 
-##Create a summary dataframe with the mean values of each site. #The data frame we are going to make contains the mean values of each variable for each site.
+## Summary data frame for each site 
+
+The data frame we are going to make contains the mean values of each variable for each site.
 
 ```{r}
 stream_summary <-  stream_clean|>
@@ -114,11 +121,10 @@ stream_summary <-  stream_clean|>
 
 ## Scaling data
 
-In order to scale our data we must extract only the numeric values by removing non-numeric data. After we are done scaling, we will replace our site names.
+Scaling ensures that all of our features are equally contributing to our analysis. This prevents variables with greater ranges from skewing our clusters in one way or another. In order to scale our data we must extract only the numeric values by removing non-numeric data. After we are done scaling, we will replace our site names.
 
 ```{r}
-
-# Scale the numeric variables (columns 3:7)
+#Scale the numeric variables (columns 3:7)
 stream_scaled <- stream_summary |>
   select(where(is.numeric))|>
   scale()

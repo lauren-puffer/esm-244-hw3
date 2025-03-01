@@ -14,7 +14,7 @@ theme: journal
 
 ## Overview
 
-For this analysis we will be using random forests in R to test how well a linear model using weather variables like relative humidity (%), temperature (celsius), rain, and wind can predict the size of a burn area (km\^2) from a forest fire. Forest fire data used in this analysis comes from a meteorological station in Northeast Portugal, a place which has been heavily impacted by fire. We will be comparing our results to the data mining study conduected by Cortez and Morais in 2007. This study was conducted when Random Forests was still relatively new. now, 18 years later, we are going to see if Random Forests has become better at improving model performance.
+For this analysis, we will be using random forests in R to test how well a linear model using weather attributes like relative humidity (%), temperature (celsius), rain, and wind can predict the size of a burn area (km\^2) from a forest fire. Forest fire data used in this analysis comes from a meteorological station in Northeast Portugal, a place that has been heavily impacted by fire. We will compare our results to the data mining study conducted by Cortez and Morais in 2007. This study was conducted when Random Forests was still relatively new. Now, 18 years later, we are going to see if Random Forests has become better at improving model performance.
 
 ## Load packages
 
@@ -58,9 +58,13 @@ c.  Train model on best parameters selected
 
 5.  Evaluate model on test set
 
-6.  Test for variable importance
+6.  Un-transform data
 
-##Load forest fire data Log 10(x+1)
+7.  Test for variable importance
+
+## Load forest fire data 
+
+Because there are many zero values for area, we will perform a log10(+1) transformation to use Random Forests. After the parameters are determined for our linear regression, we will undo this transformation to collect our final accuracy metrics.
 
 ```{r}
 fire_data <- read.csv(here("data","forestfires.csv")) |>
@@ -70,22 +74,29 @@ fire_data <- read.csv(here("data","forestfires.csv")) |>
   drop_na()
 ```
 
-##Exploratory Data Analysis
+## Exploratory Data Analysis
+
+Correlation of variables can be plotted using this correlation plot. This will allow us to see which parameters may be positively or negatively correlated with one another in a pairwise fashion.
 
 ```{r}
+#| fig-cap: ""
 
 corr_plot <- fire_data |> 
   cor() |>
   ggcorrplot(
     method = "circle",
     type='upper',
-    outline.col = "black") + scale_fill_gradient2(low = "deeppink", mid = "aquamarine3", high= "darkolivegreen2") +
-  theme_bw()
+    outline.col = "black", ) + 
+  labs(x = "Varaibel 1", y = "Variable 2", title = "Correlation Plot")+
+  scale_fill_gradient2(low = "deeppink", mid = "aquamarine3", high= "darkolivegreen2") +
+  theme_bw() 
 
 print(corr_plot)
 ```
 
 ## Split data
+
+To train our model, we must set aside 75% of our data to be trained. The remaining 25% will be used to test the fit of our resulting model after using Random Forests.
 
 ```{r}
 set.seed(666)
@@ -97,7 +108,9 @@ fire_train <- training(fire_split)
 fire_test <- testing(fire_split)
 ```
 
-## Create recipe with all predictors
+## Creata a recipe with all predictors
+
+When using a recipe in random forests, we want the machine to be able to pull any variables that are best suited for predicting area. We must specify that 'area' is our independent variable and that we are using our training data within this recipe. We will also set a correlation threshold of 90% to avoid over-fitting our data in our final model.
 
 ```{r}
 fire_recipe <- recipe(area ~ ., data = fire_train) |> 
@@ -107,7 +120,7 @@ fire_recipe <- recipe(area ~ ., data = fire_train) |>
 
 ## Create a workflow and set up Random Forests
 
-The workflow allows us to use our recipe with Random Forests. Random Forestst will be used to optimize a linear regression model that predicts burn area. Our workflow will be used to create the best regression model. We will also tune our grid using which refers to the combinatinon of parameters Random Forests will use to optimize our model performance.
+The workflow allows us to use our recipe with Random Forests. Random Forests will be used to optimize a linear regression model that predicts burn area. Our workflow will be used to create the best regression model. We will also tune our grid, which refers to the combination of parameters Random Forests will use to optimize our model performance.
 
 ```{r}
 fire_spec <- rand_forest(trees = 1000, #number of decision trees used to make predictions. Accuracy and stibility of the model increases with the number of trees
@@ -146,9 +159,10 @@ fire_res <- tune_grid(
 
 ## Model performance
 
-Look at how well the model performed with different parameters
+Now we can see how well the model performed with different parameters: number of minimum nodes and variables used. The optimal selection of hyperparameters will have the lowest Mean Absolute Error.
 
 ```{r}
+#| fig-cap: ""
 
 fire_res |>
   collect_metrics() |>
@@ -157,21 +171,27 @@ fire_res |>
   ggplot(aes(mtry, mean, color = min_n)) +
   geom_line(alpha = 0.5, linewidth = 1.5) +
   geom_point() +
-  labs(title= "",y = "Mean Absolute Error", x = "Number of Parameters Used") +
+  labs(title= "Model Accuracy Determined by Hyperparameters",y = "Mean Absolute Error", x = "Number of Parameters Used") +
   scale_color_manual(values = c( "deeppink2", "darkorange", "goldenrod1", "darkolivegreen")) +
   theme_classic()
 ```
 
+We can see that the best-performing model has the smallest number of variables (mtry), with the greatest number of minimum nodes (min_n). This combination uses 2 parameters with 10 minimum nodes. We will use those hyperparameters from our tuned grid to finalize our model and collect predictions of with Mean Absolute Error as our metric.
+
 ## Select the best fit
+
+We will pull our results from our plot and select the best fit combination of hyperparameters directly from it using the select_best() function.
 
 ```{r}
 #determine best number of min_n and mtry
 fire_best<-select_best(fire_res,metric='mae')
 ```
 
-Best number of Mtry is 1 and best number of min_n in 3.
+Mtry (number of variables) for our model will be 2 and min_n (minimum nodes/decisions) will be 10.
 
 ## Finalize the model
+
+We will now create our final model and use it in a workflow with our established recipe with our testing data to see how well our model predicts area using the parameters specified by our Random Forests workflow.
 
 ```{r}
 
@@ -188,6 +208,8 @@ final_fire_res <- final_fire_wf |>
 
 ## Get predictions
 
+To ensure that our model worked properly on our testing data, we will look at the predictions.
+
 ```{r}
 prediction <- final_fire_res |>
   collect_predictions() 
@@ -197,6 +219,8 @@ prediction <- final_fire_res |>
 
 ## Unlog the data
 
+These predictions were performed on transformed data, so afterwards we must un-transform our data in order to compare the MAE metrics we find with those that are in the Cortez and Morais paper from 2007.
+
 ```{r}
 #use mutate to unlog predictions and area
 prediction_unlog <- prediction |>
@@ -205,6 +229,8 @@ prediction_unlog <- prediction |>
 ```
 
 ## Calculate the MAE value
+
+This MAE value will be the one we use to compare with the study's value.
 
 ```{r}
 #Collect MAE predictions without log
