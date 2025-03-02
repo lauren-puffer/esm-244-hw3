@@ -14,7 +14,7 @@ theme: journal
 
 ## Overview
 
-For this analysis, we will be using random forests in R to test how well a linear model using weather attributes like relative humidity (%), temperature (celsius), rain, and wind can predict the size of a burn area (km\^2) from a forest fire. Forest fire data used in this analysis comes from a meteorological station in Northeast Portugal, a place that has been heavily impacted by fire. We will compare our results to the data mining study conducted by Cortez and Morais in 2007. This study was conducted when Random Forests was still relatively new. Now, 18 years later, we are going to see if Random Forests has become better at improving model performance.
+For this analysis, we will be using random forests in R to test how well a linear model using weather attributes like relative humidity, temperature, rain, and wind can predict the size of a burn area from a forest fire. Forest fire data used in this analysis comes from a meteorological station in Northeast Portugal, a place that has been heavily impacted by fire. We will compare our results to the data mining study conducted by Cortez and Morais in 2007. This study was conducted when Random Forests was still relatively new. Now, 18 years later, we are going to see if Random Forests has become better at improving model performance.
 
 ## Load packages
 
@@ -23,8 +23,8 @@ library(tidymodels)
 library(tidyverse)
 library(ggcorrplot)
 library(knitr)
-library(kableExtra)
-library(vip)
+library(kableExtra) #for creating a table with resulst from random forests
+library(vip) #used for plotting variable importance
 library(ranger)
 
 #file management packages
@@ -36,7 +36,23 @@ library(here)
 
 Cortez, P., & Morais, A. (2007, January). *A Data Mining Approach to Predict Forest Fires using Meteorological Data*. ResearchGate. <https://www.researchgate.net/publication/238767143_A_Data_Mining_Approach_to_Predict_Forest_Fires_using_Meteorological_Data>
 
-## **Pseudocode**
+## Explanation of variables
+
+```{r}
+var_table <- tibble(
+  Variable = c("rh", "temp", "wind", "rain", "area"),
+  Explanation = c("Outside relative humidity (%)", "Outside temperature (degrees C)",
+                  "Outside wind speed (km/hr)", "Outside rain (mm/m^2)", "Total area burned (hectares)")
+)
+
+var_table |>
+    kable(col.names = c("Variable", "Description"),
+    format = "html",
+    caption = "") |>
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+## Pseudocode
 
 1.  Split data maintaining balance
 
@@ -60,7 +76,9 @@ c.  Train model on best parameters selected
 
 6.  Un-transform data
 
-7.  Test for variable importance
+7.  Compare Mean Absolute Error from our regression in RF to the Cortez and Morais paper.
+
+8.  Graph variable importance
 
 ## Load forest fire data
 
@@ -79,7 +97,7 @@ fire_data <- read.csv(here("data","forestfires.csv")) |>
 Correlation of variables can be plotted using this correlation plot. This will allow us to see which parameters may be positively or negatively correlated with one another in a pairwise fashion.
 
 ```{r}
-#| fig-cap: ""
+#| fig-cap: "Fig. 1 - Correlation plot of variables used in analysis. Variables can be positively or negatively correlated."
 
 corr_plot <- fire_data |> 
   cor() |>
@@ -87,7 +105,7 @@ corr_plot <- fire_data |>
     method = "circle",
     type='upper',
     outline.col = "black", ) + 
-  labs(x = "Varaibel 1", y = "Variable 2", title = "Correlation Plot")+
+  labs(x = "Variable 1", y = "Variable 2", title = "Correlation Plot")+
   scale_fill_gradient2(low = "deeppink", mid = "aquamarine3", high= "darkolivegreen2") +
   theme_bw() 
 
@@ -162,7 +180,7 @@ fire_res <- tune_grid(
 Now we can see how well the model performed with different parameters: number of minimum nodes and variables used. The optimal selection of hyperparameters will have the lowest Mean Absolute Error.
 
 ```{r}
-#| fig-cap: ""
+#| fig-cap: "Fig. 2 - Line graph showing the Mean Absolute Error calculate for different parameter combinations used in our grid after tuning."
 
 fire_res |>
   collect_metrics() |>
@@ -178,22 +196,17 @@ fire_res |>
 
 We can see that the best-performing model has the smallest number of variables (mtry), with the greatest number of minimum nodes (min_n). This combination uses 2 parameters with 10 minimum nodes. We will use those hyperparameters from our tuned grid to finalize our model and collect predictions of with Mean Absolute Error as our metric.
 
-## Select the best fit
+## Select and finalize the best fit model
 
 We will pull our results from our plot and select the best fit combination of hyperparameters directly from it using the select_best() function.
 
-```{r}
-#determine best number of min_n and mtry
-fire_best<-select_best(fire_res,metric='mae')
-```
-
 Mtry (number of variables) for our model will be 2 and min_n (minimum nodes/decisions) will be 10.
-
-## Finalize the model
 
 We will now create our final model and use it in a workflow with our established recipe with our testing data to see how well our model predicts area using the parameters specified by our Random Forests workflow.
 
 ```{r}
+#determine best number of min_n and mtry
+fire_best<-select_best(fire_res,metric='mae')
 
 fire_final<-finalize_model(fire_spec, fire_best)
 
@@ -206,26 +219,21 @@ final_fire_res <- final_fire_wf |>
   last_fit(fire_split)
 ```
 
-## Get predictions
+## Get predictions and unlog the data
 
 To ensure that our model worked properly on our testing data, we will look at the predictions.
-
-```{r}
-prediction <- final_fire_res |>
-  collect_predictions() 
-
-#table of predictions
-```
-
-## Unlog the data
 
 These predictions were performed on transformed data, so afterwards we must un-transform our data in order to compare the MAE metrics we find with those that are in the Cortez and Morais paper from 2007.
 
 ```{r}
+#collect predictions
+prediction <- final_fire_res |>
+  collect_predictions() 
+
 #use mutate to unlog predictions and area
 prediction_unlog <- prediction |>
-  mutate(.pred = 10^.pred) |>
-  mutate(area= 10^area)
+  mutate(.pred = 10^.pred -1) |>
+  mutate(area= 10^area -1)
 ```
 
 ## Calculate the MAE value
@@ -237,10 +245,48 @@ This MAE value will be the one we use to compare with the study's value.
 mae_predictions <- prediction_unlog |>
   mae(truth = area, estimate = .pred)
 
+#create table w/ mae predictions
+mae_table <- tibble(
+  Metric = c("MAE"),
+  Model_Value = c(round(mae_predictions$.estimate, 2)),
+  Comparison_Value = c("12.93±0.01")
+)
+
+mae_table |>
+  kable(
+    col.names = c('Metric', 'Model Value', 'Cortez and Morais, 2007'),
+    caption = "Table 2 - Mean absolute error from our random forest linear regression and Cortez and Morais paper from 2007 using environmental attributes. Lower values of MAE suggest a better model."
+  ) |>
+  kable_styling()
+
 ```
 
-## Create table w MAE value predictions
+
+Our model had a slightly higher Mean Absolute Error compared with the Cortez and Morais study. While this doesn't necessarily mean that our models are that different, it does suggest that Cortez and Morais were able to create a better model with random forests than we were.
+
+## Graph of variable importance
+
+To see which variables truly governed the predictions of our model, we will observe their importance visually.
 
 ```{r}
+#| fig-cap: "Fig. 2 - Importance of weather attributes in Random Forests model."
 
+
+importance_plot<- fire_final |>
+  set_engine('ranger', importance = 'permutation') |> 
+  fit(area ~ ., data = juice(prep(fire_recipe))) |> 
+  vip(geom = 'point')
+
+importance_point_plot_ <- importance_plot +
+  labs(y = "Importance", x = "Variable") +
+  theme_minimal() +  
+  geom_point(color = "coral2", size = 3)
+
+print(importance_point_plot_)
 ```
+
+Temperature has the most importance of all the weather attributes in predicting burn area. This is consistent with the Cortez and Morais study, however, their second-most important variable was rain, whereas our second-most important variable is relative humidity.
+
+## Conclusion
+
+While our results differ slightly from the Cortez and Morais study, it is important to note that their study found that weather attributes were excellent predictors for smaller fires. This means that observations with smaller burn areas were more likely to be accuratle predicted by relative humidity, temperature, rain, and wind. Further analysis could examine why it is that weather attributes are not as great at predicting burn areas of larger fires. In the context of the data they used, Northeast Portugal sees a majority of small fires. With this in mind, a model like this could be very useful for distributing resource to manage smaller fires.
