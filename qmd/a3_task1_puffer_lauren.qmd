@@ -95,17 +95,12 @@ cols_to_remove <- names(na_count[na_count > 9000])
 #remove columns with >50% NAs from the data frame
 stream_col_clean <- stream_data[, !(names(stream_data) %in% cols_to_remove)]
 
-#Summarize the cleaned data frame
-summary(stream_col_clean)
-
 #drop NAs 
 stream_clean <- stream_col_clean |>
   drop_na()
 ```
 
-While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
-
-## Summary data frame for each site
+## Data frame with means for each site
 
 The data frame we are going to make must contain the mean values of each variable for each site. This is because we need to be able to assess similarity on a site-by-site basis, not based on different observations.
 
@@ -153,7 +148,7 @@ comp_hclust_stream <- hclust(euc_dist, method = "complete" )
 Dendrograms are used to compare clusters of data points. In this case we will be comparing sites based on their water quality data.
 
 ```{r}
-#| fig-cap: "This dendrogram shows dissimilarity as a function of euclidian distance. An increase in euclidian distance corresponds to increased dissimilarity between sites."
+#| fig-cap: " Fig. 1 - This dendrogram shows dissimilarity as a function of euclidian distance. An increase in euclidian distance corresponds to increased dissimilarity between sites."
 
 #Plot dendrogram
 hclust_dend_stream<-ggdendrogram(comp_hclust_stream, 
