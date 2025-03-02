@@ -14,7 +14,7 @@ theme: journal
 
 ## Overview
 
-What we gon' do???
+For this analysis we will be using stream chemistry data collected from watersheds in Santa Barbara starting in 2000 to observe how dissimilar different sites are based on their amounts of ammonium (micromoles per liter), nitrate (micromoles per liter), phosphate (micromoles per liter), total dissolved nitrogen (micromoles per liter), total dissolved phosphorous (micromoles per liter) and specific conductivity (micro-Siemens per cm). The dataset we are working on comes from the Santa Barbara County Long-Term Ecological Research project (SBC LTER), which means that data collection for this dataset is ongoing. We will be using hierarchical agglomarative clustering with complete linkages to determine dissimilarity between sites. The final product of this anaylsis will be a dendrogram to visualize the euclidian distance between sites, representing a certain degree of dissimilarity.
 
 ## Load packages
 
@@ -78,10 +78,6 @@ stream_data[cols_to_convert] <- lapply(stream_data[cols_to_convert], as.numeric)
 #rtest one column to see if it's numeric
 is.numeric(stream_data$nh4_u_m)
 #it worked!
-
-
-#Now when we use 'summary()' we should not have -999 as our minimum. 
-summary(stream_data)
 ```
 
 ## Deleting NAs
@@ -109,9 +105,9 @@ stream_clean <- stream_col_clean |>
 
 While we have only 5% of the original data, our minimum values are 0 for the list delete method compared to the column delete method. We also were able to keep all of our variables. For this reason we will use the data frame with the list deletion method applied to get rid of our NAs.
 
-## Summary data frame for each site 
+## Summary data frame for each site
 
-The data frame we are going to make contains the mean values of each variable for each site.
+The data frame we are going to make must contain the mean values of each variable for each site. This is because we need to be able to assess similarity on a site-by-site basis, not based on different observations.
 
 ```{r}
 stream_summary <-  stream_clean|>
@@ -135,6 +131,8 @@ rownames(stream_scaled) <- stream_summary$site_code
 
 ## Calculating Euclidian distance
 
+This allows us to collect a specific measure of dissimilarity between each site based on our water chemistry variables. The values generated for euclidian distance will be the same values we will use to populate our dendrogram.
+
 ```{r}
 
 #used vector of scaled data to calculate euclidian distance
@@ -143,6 +141,8 @@ euc_dist <- dist(stream_scaled, method= 'euclidian')
 
 ## Complete linkage hierarchical clustering
 
+Complete linkage clustering uses the maximum distance between the farthest points and compares it with the distance between clusters to define its linkages. The result gives us compact clusters that are clearly defined.
+
 ```{r}
 #Hierarchical clustering (complete linkage)
 comp_hclust_stream <- hclust(euc_dist, method = "complete" )
@@ -150,12 +150,20 @@ comp_hclust_stream <- hclust(euc_dist, method = "complete" )
 
 ## Create dendrogram
 
+Dendrograms are used to compare clusters of data points. In this case we will be comparing sites based on their water quality data.
+
 ```{r}
+#| fig-cap: "This dendrogram shows dissimilarity as a function of euclidian distance. An increase in euclidian distance corresponds to increased dissimilarity between sites."
+
 #Plot dendrogram
 hclust_dend_stream<-ggdendrogram(comp_hclust_stream, 
              rotate = TRUE) + #rotates 90
   theme_minimal() +
-  labs(title= "Complete", x = "Site")
+  labs(title= "Complete", x = "Site", y = "Euclidian Distance")
 
 hclust_dend_stream
 ```
+
+## Discussion
+
+Sites RG01, ON02, RS02, and HO00 are similar to one another based on their low euclidian distance and closeness to on another. Sites MC00, AB00, GV01, SP02, and MC06 are also similar. The similarity between sites based on their water quality suggests that they may have similar inputs for water, species within them, and provide similar ecosystem services. For this analysis we used ammonium, nitrate, phosphate, specific conductivity, total dissolved nitrogen, and total dissolved phosphate. All of these variables could tell use something about the kinds of things living in each site and how similar those groups of organisms are between sites. Living things on Earth require certain amounts of nutrients like nitrate, phosphate, and even ammonium. Further analysis could examine this relationship between water quality and species composition at each site.

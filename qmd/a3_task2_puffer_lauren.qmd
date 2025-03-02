@@ -62,7 +62,7 @@ c.  Train model on best parameters selected
 
 7.  Test for variable importance
 
-## Load forest fire data 
+## Load forest fire data
 
 Because there are many zero values for area, we will perform a log10(+1) transformation to use Random Forests. After the parameters are determined for our linear regression, we will undo this transformation to collect our final accuracy metrics.
 
